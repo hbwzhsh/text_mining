@@ -1,43 +1,45 @@
-setwd("d:/data/0722999cv")
-
-memory.size(F)
-memory.size(T)
-memory.size(NA)
-
 #概述：999份文本简历的挖掘，
 #1按照htm结构抓简历相应部分内容，例：简历自我评价，XML
 #2语料库的清洗整理，生成dtm矩阵，全量和加权
 #3描述统计分析和词云图，词关系图
 #4主题模型探索
 #问题1 数据导入泛适应；2正则优化-分词套用词库；3topic模型评价
-#4.sougou研究报告的深入挖掘。。。
 
+
+#数据导入1——依照htm结构抓取对应信息
 
 library(XML)
 library(tm)
-#数据导入1——依照htm结构抓取对应信息
+
 l=999
+p_basic <- "//div[@class='baseinfo']"
 p_comment <-"//div[@class='resume_p']"
-p_work <-"//div[@class='zpResumeS']//td[@class='line150']" #工作经验的nodeset
+#p_work <-"//div[@class='zpResumeS']//td[@class='line150']" #工作经验的nodeset
 
 basicinfo<-vector(length = l)
 comment <- vector(length = l)
-work1 <-vector(length = l)
-work2 <-vector(length = l)
-work3 <-vector(length = l)
-work4 <-vector(length = l)
 
-for (i in 1:l){t<-paste("第",i,"份简历.htm",sep='') 
-               #抓自我评论
-               comment[i]<-sapply(
-                 getNodeSet(htmlParse(t,encoding='utf8'), p_comment),xmlValue)
-               #抓工作经历             
-               #doc<-htmlParse(t,encoding='utf8')
-               #work1[i] <- as.character(sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_work),xmlValue)[1])
-               #work2[i] <- as.character(sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_work),xmlValue)[2])
-               #work3[i] <- as.character(sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_work),xmlValue)[3])
-               #work4[i] <- as.character(sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_work),xmlValue)[4])
+for (i in 1:l){t<-paste("D:/百度云同步盘/data/20130722 999salescv/第",i,"份简历.htm",sep='') 
+  #抓工作经历             
+  basicinfo[i] <- sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_basic),xmlValue)
+  #抓自我评论
+  comment[i] <- sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_comment),xmlValue)
 }
+basicinfo <- gsub( "[ |\r\n\t]+" , ",", basicinfo)
+basicinfo <- sapply(basicinfo, function(x) strsplit(x ,",") )
+basicinfo <- do.call(rbind, basicinfo)
+row.names(basicinfo) <- NULL
+for ( i in 1: nrow(basicinfo)) {
+  if (  basicinfo[i,3] !="未婚" & basicinfo[i,3] !="已婚") 
+  { 
+    for ( j in ncol(basicinfo): 4)
+          { basicinfo[i,j] = basicinfo[i,j-1]}
+  }
+}
+gender <- basicinfo[,2]
+age <- as.numeric( format(Sys.Date(), "%Y"))-as.numeric( basicinfo[,4] )
+local <- gsub( "现居住于","",basicinfo[,7])
+workyear <- as.numeric( gsub( "年工作经验", "", basicinfo[,8]))
 
 #定义一个函数，输入文本vector，切词，生成语料库,移除空格，标点，小写
 
@@ -72,8 +74,8 @@ lterm <- 30
 terms_all <-vector(length = lterm)
 terms_w1 <-vector(length =lterm)
 for (i in 1:lterm) {
- terms_all[i] <-length (findFreqTerms(dtm_all, i))
- terms_w1[i] <-length (findFreqTerms(dtm_w1, i))}
+  terms_all[i] <-length (findFreqTerms(dtm_all, i))
+  terms_w1[i] <-length (findFreqTerms(dtm_w1, i))}
 plot(terms_all, xlab="freq of words", ylab="n of words", main="unweighted vs tf-idf",
      type="l", col="grey", lwd=3);
 lines(terms_w1, col="blue" , lwd=3) #可见，加权的dtm在中频词的发现能力要强于不加权dtm
@@ -131,10 +133,10 @@ k<-10 #num of topics, 如何确定，不知道
 SEED<-2013
 
 r_tm<-list( VEM=LDA(dtm4tp,k=k,control=list(seed=SEED)) ,
-          VEM_fixed=LDA(dtm4tp,k=k, control=list(estimate.alpha=FALSE,seed=SEED)),
-         Gibbs=LDA(dtm4tp,k=k,method="Gibbs", control=list(seed=SEED,burnin=1000, thin=100,iter=1000)),
-         CTM=CTM(dtm4tp,k=k, control=list(seed=SEED, var=list(tol=10^-4),em=list(tol=10^-3)))
-            )
+            VEM_fixed=LDA(dtm4tp,k=k, control=list(estimate.alpha=FALSE,seed=SEED)),
+            Gibbs=LDA(dtm4tp,k=k,method="Gibbs", control=list(seed=SEED,burnin=1000, thin=100,iter=1000)),
+            CTM=CTM(dtm4tp,k=k, control=list(seed=SEED, var=list(tol=10^-4),em=list(tol=10^-3)))
+)
 sapply(r_tm[1:3], slot, "alpha")
 #a数值越小，更多文档被分在一个主题下的概率越高-k的选择越没用???
 
@@ -144,4 +146,5 @@ Topic<-topics(r_tm[["VEM"]],2)
 terms<-terms(r_tm[["VEM"]],10)
 write.csv(t(Topic),file="output/tpic.csv")
 write.csv(terms,file="output/terms.csv")
+
 
