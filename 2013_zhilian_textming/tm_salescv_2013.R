@@ -1,135 +1,127 @@
-#æ¦‚è¿°ï¼š999ä»½æ–‡æœ¬ç®€å†çš„æŒ–æ˜ï¼Œ
-#1æŒ‰ç…§htmç»“æ„æŠ“ç®€å†ç›¸åº”éƒ¨åˆ†å†…å®¹ï¼Œä¾‹ï¼šç®€å†è‡ªæˆ‘è¯„ä»·ï¼ŒXML
-#2è¯­æ–™åº“çš„æ¸…æ´—æ•´ç†ï¼Œç”ŸæˆdtmçŸ©é˜µï¼Œå…¨é‡å’ŒåŠ æƒ
-#3æè¿°ç»Ÿè®¡åˆ†æå’Œè¯äº‘å›¾ï¼Œè¯å…³ç³»å›¾
-#4ä¸»é¢˜æ¨¡å‹æ¢ç´¢
-#é—®é¢˜1 æ•°æ®å¯¼å…¥æ³›é€‚åº”ï¼›2æ­£åˆ™ä¼˜åŒ–-åˆ†è¯å¥—ç”¨è¯åº“ï¼›3topicæ¨¡å‹è¯„ä»·
+#¸ÅÊö£º999·İÎÄ±¾¼òÀúµÄÍÚ¾ò£¬
+#1°´ÕÕhtm½á¹¹×¥¼òÀúÏàÓ¦²¿·ÖÄÚÈİ£¬Àı£º¼òÀú×ÔÎÒÆÀ¼Û£¬XML
+#2ÓïÁÏ¿âµÄÇåÏ´ÕûÀí£¬Éú³Édtm¾ØÕó£¬È«Á¿ºÍ¼ÓÈ¨
+#3ÃèÊöÍ³¼Æ·ÖÎöºÍ´ÊÔÆÍ¼£¬´Ê¹ØÏµÍ¼
+#4Ö÷ÌâÄ£ĞÍÌ½Ë÷
+#ÎÊÌâ1 Êı¾İµ¼Èë·ºÊÊÓ¦£»2ÕıÔòÓÅ»¯-·Ö´ÊÌ×ÓÃ´Ê¿â£»3topicÄ£ĞÍÆÀ¼Û
 
 
-#æ•°æ®å¯¼å…¥1â€”â€”ä¾ç…§htmç»“æ„æŠ“å–å¯¹åº”ä¿¡æ¯
-
+##data prepare
 library(XML)
 library(tm)
-
 l=999
-p_basic <- "//div[@class='baseinfo']"
+p_basic <- "//div[@class='baseinfo']" #xmlNodes
 p_comment <-"//div[@class='resume_p']"
-#p_work <-"//div[@class='zpResumeS']//td[@class='line150']" #å·¥ä½œç»éªŒçš„nodeset
-
+p_ind <- "//div[@class='itemCon']//td[6]"
+#p_work <-"//div[@class='zpResumeS']//td[@class='line150']" # working exp.
 basicinfo<-vector(length = l)
 comment <- vector(length = l)
-
-for (i in 1:l){t<-paste("D:/ç™¾åº¦äº‘åŒæ­¥ç›˜/data/20130722 999salescv/ç¬¬",i,"ä»½ç®€å†.htm",sep='') 
-  #æŠ“å·¥ä½œç»å†             
+industry <- vector(length = l)
+for (i in 1:l){t<-paste("D:/°Ù¶ÈÔÆÍ¬²½ÅÌ/data/20130722 999salescv/µÚ",i,"·İ¼òÀú.htm",sep='')       
   basicinfo[i] <- sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_basic),xmlValue)
-  #æŠ“è‡ªæˆ‘è¯„è®º
   comment[i] <- sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_comment),xmlValue)
+  industry[i] <- sapply( getNodeSet(htmlParse(t,encoding='utf8'), p_ind),xmlValue)
 }
 basicinfo <- gsub( "[ |\r\n\t]+" , ",", basicinfo)
 basicinfo <- sapply(basicinfo, function(x) strsplit(x ,",") )
-basicinfo <- do.call(rbind, basicinfo)
+basicinfo <- do.call(rbind, basicinfo) #tern list to dataframe
 row.names(basicinfo) <- NULL
 for ( i in 1: nrow(basicinfo)) {
-  if (  basicinfo[i,3] !="æœªå©š" & basicinfo[i,3] !="å·²å©š") 
+  if (  basicinfo[i,3] !="Î´»é" & basicinfo[i,3] !="ÒÑ»é") 
   { 
     for ( j in ncol(basicinfo): 4)
-          { basicinfo[i,j] = basicinfo[i,j-1]}
+          { basicinfo[i,j] = basicinfo[i,j-1]} #Ã¿Ò»ĞĞÊı¾İÏòÇ°´ÜÒ»¸ñ
   }
 }
 gender <- basicinfo[,2]
 age <- as.numeric( format(Sys.Date(), "%Y"))-as.numeric( basicinfo[,4] )
-local <- gsub( "ç°å±…ä½äº","",basicinfo[,7])
-workyear <- as.numeric( gsub( "å¹´å·¥ä½œç»éªŒ", "", basicinfo[,8]))
-
-#å®šä¹‰ä¸€ä¸ªå‡½æ•°ï¼Œè¾“å…¥æ–‡æœ¬vectorï¼Œåˆ‡è¯ï¼Œç”Ÿæˆè¯­æ–™åº“,ç§»é™¤ç©ºæ ¼ï¼Œæ ‡ç‚¹ï¼Œå°å†™
-
-vector2corpus <- function(x)
-{
-  library(rmmseg4j)
-  corpus <- Corpus(VectorSource(mmseg4j(x)))
-  corpus <- tm_map(corpus, tolower)
-  corpus <- tm_map(corpus, removePunctuation)
-  corpus <- tm_map(corpus, removeWords,stopwords("english"))
-  tm_map(corpus, stripWhitespace)
-}
-
-cmt <- vector2corpus(comment) #è‡ªæˆ‘è¯„ä»·çš„è¯­æ–™åº“
+local <- gsub( "ÏÖ¾Ó×¡ÓÚ","",basicinfo[,7])
+workyear <- as.numeric( gsub( "Äê¹¤×÷¾­Ñé", "", basicinfo[,8]))
+industry1 <- as.character( lapply( industry, function(x) strsplit(x,"¡¢")[[1]][1])) #last work
+rm(basicinfo, i, j, p_basic, p_comment, t,l, industry, p_ind )
 
 
-#ç”±è¯­æ–™åº“å˜æˆdtmçŸ©é˜µ
+## deal with text
+#·Ö´Ê
+library(Rwordseg)
+seg.txt <- segmentCN( comment , nature = T )
+#source textmining.R
+wordstyle(seg.txt)
+keep <- "n,a,v,vn,ad, l, i, j, b, nz, s, z, an, "
+seg.txt <- wordfilter.keep( seg.txt, keep)
+seg.txt <- gsub("^c","", as.character(seg.txt))
+##tm×¼±¸
+corpus <- vector2corpus(seg.txt) 
+#ÓÉÓïÁÏ¿â±ä³Édtm¾ØÕó
+dtm <- DocumentTermMatrix( corpus , control = list(
+  #weighting = weightTfIdf, #³öÓÚ»ñµÃÔ­Ê¼Êı¾İ¿¼ÂÇ£¬²»¼ÓÈ¨
+  wordLengths = c (2, Inf ), #³¤¶ÈÎª1µÄ´ÊÈ¥µô
+  stopwords = c(""), #
+  removePunctuation = TRUE,
+  removeNumbers=TRUE
+))
 
-dtm_all<-DocumentTermMatrix(cmt, control=list(removeNumbers = TRUE) ) # å…¨é‡dtm
-dtm_w1<-DocumentTermMatrix(cmt, control=list(
-  removeNumbers = TRUE, #ç§»é™¤æ•°å­—
-  stopwords = FALSE, #ä¸­æ–‡é‡Œæ²¡å®šä¹‰å­—å…¸çš„è¯æ²¡æœ‰ç”¨å¤„
-  weighting = weightTfIdf  #å¯é€‰ weightTf, weightTfIdf, weightBin, and weightSMART
-)   )
+#dtm½µÎ¬¡ª¡ª»ùÓÚtfidf
+dtm.data <- as.data.frame( as.matrix( dtm))
+#terms <- tf.idf(dtm.data)
+terms <- atf.pdf(dtm.data)
+terms <- terms[ terms > quantile(terms, prob=.25) ]
+dtm.data <- dtm.data[, colnames(dtm.data) %in% names(terms)]
 
-##æè¿°ç»Ÿè®¡åˆ†æ
-
-#è¯é¢‘é€‰å–
-length( findFreqTerms(dtm_all, 1)) #å…¨é‡dtmåŒ…å«è¯çš„ä¸ªæ•°
-
-lterm <- 30
-terms_all <-vector(length = lterm)
-terms_w1 <-vector(length =lterm)
-for (i in 1:lterm) {
-  terms_all[i] <-length (findFreqTerms(dtm_all, i))
-  terms_w1[i] <-length (findFreqTerms(dtm_w1, i))}
-plot(terms_all, xlab="freq of words", ylab="n of words", main="unweighted vs tf-idf",
-     type="l", col="grey", lwd=3);
-lines(terms_w1, col="blue" , lwd=3) #å¯è§ï¼ŒåŠ æƒçš„dtmåœ¨ä¸­é¢‘è¯çš„å‘ç°èƒ½åŠ›è¦å¼ºäºä¸åŠ æƒdtm
-
-#é«˜é¢‘è¯
-findFreqTerms(dtm_w1,15) #é¢‘ç‡å‚æ•°ç”±å‰é¢å›¾å‚è€ƒç¡®å®š
-highfreqterms <- findFreqTerms(dtm_w1,15)
-
-#æŠŠé«˜é¢‘è¯å¯¼å‡ºæ¥
-freq <- as.data.frame( colSums( as.matrix(dtm_all)))
-freq <- cbind(row.names(freq), freq)
-names(freq) <- c("term","n")
-library(sqldf)
-freq <- sqldf("select * from freq where n>5 order by n desc")
-write.csv(freq, "output/freqterms.csv"); rm(freq)
-
-
-#wordcloudå›¾
+#wordcloudÍ¼
 library(wordcloud)
-dm<-t(as.matrix(dtm_w1)) #è½¬ç½®ï¼Œæ’åºï¼Œè®¡ç®—é¢‘æ•°ï¼Œç„¶åç»˜å›¾
+#µ¥Í¼
+dm<-t(as.matrix(dtm.data)) #×ªÖÃ£¬ÅÅĞò£¬¼ÆËãÆµÊı£¬È»ºó»æÍ¼
 v<-sort(rowSums(dm),decreasing=T)
 d<-data.frame(word=names(v),freq=v)
 col<-rep( c(rgb(0,0.32,0.61), rgb(1,0.6,0),"black", rgb(0.6,0.8,0)),20)
-#æ ‡å‡†å¾¡å››è‰²è“ã€ç»¿ã€é»‘ã€æ¡”
+#±ê×¼ÓùËÄÉ«À¶¡¢ÂÌ¡¢ºÚ¡¢½Û
 wc<-wordcloud(d$word,d$freq,colors=col, min.freq=5,max.words=80  )
 
-??wordcloud
+#·Ö×éÍ¼
+dm.class <- cbind(dtm.data, as.factor(gender))
+cluster_matrix <- aggregate(dtm.data ,by=list( gender) ,FUN=sum)
+matrix <- t(cluster_matrix[,-1]) #delete the class variable and transfer
+names(matrix) <- colnames(cluster_matrix)
+colnames(matrix) <- levels( as.factor(gender))
+comparison.cloud(  matrix,
+                   scale=c(2,1) , #×ÖÌå×î´ó¼°×îĞ¡Öµ
+                   max.words=200,
+                   random.order=FALSE,rot.per=.1,
+                   #colors=brewer.pal(ncol(cluster_matrix),"Dark2"),
+                   use.r.layout=FALSE,
+                   title.size=1)
 
-#è¯çš„å…³ç³»å›¾
-library(igraph) #å‚æ•°è¦å°è¯•
+??comparison.cloud
+
+
+
+#´ÊµÄ¹ØÏµÍ¼
+library(igraph) #²ÎÊıÒª³¢ÊÔ
 dtmwc<-as.matrix(removeSparseTerms(dtm_w1,0.98))
 cordtm <- cor(dtmwc)
 g=graph.adjacency((cordtm>(0.05)),mode="undirected",diag=F)
 plot(g,layout=layout.fruchterman.reingold, edge.color=grey(0.5),vertex.size=5)
 
-#é«˜é¢‘è¯çš„ç›¸å…³è¯çŸ©é˜µ
+#¸ßÆµ´ÊµÄÏà¹Ø´Ê¾ØÕó
 hft <- sapply(highfreqterms, FUN=function(x) list(findAssocs(dtm_w1, x, 0.1)[1:5] ) )
-hft #åªèƒ½åœ¨æœ¬åœ°çœ‹ï¼Œæ²¡æœ‰åˆé€‚çš„å±•ç¤ºæ–¹å¼
+hft #Ö»ÄÜÔÚ±¾µØ¿´£¬Ã»ÓĞºÏÊÊµÄÕ¹Ê¾·½Ê½
 
-#åštopicmodel
+#×ötopicmodel
 dim(dtm_all) #999 1161
-#é¢„å¤„ç†,using tf-idf value to choose terms
-library("slam") #ç¨€ç–çŸ©é˜µè®¡ç®—ç”¨çš„
+#Ô¤´¦Àí,using tf-idf value to choose terms
+library("slam") #Ï¡Êè¾ØÕó¼ÆËãÓÃµÄ
 summary(col_sums(dtm_all))
 term_tfidf<-
   tapply(dtm_all$v/row_sums(dtm_all)[dtm_all$i],dtm_all$j,mean)*
   log2(nDocs(dtm_all)/col_sums(dtm_all>0))
-summary(term_tfidf)#å…¨éƒ¨termçš„dfidfå€¼çš„åˆ†å¸ƒï¼Œç”¨æ¥åšç­›é€‰
-dtm4tp<-dtm_all[,term_tfidf>=1.4] #ç­›é€‰termçš„å‚æ•°å‚è€ƒä¸­ä½æ•°
+summary(term_tfidf)#È«²¿termµÄdfidfÖµµÄ·Ö²¼£¬ÓÃÀ´×öÉ¸Ñ¡
+dtm4tp<-dtm_all[,term_tfidf>=1.4] #É¸Ñ¡termµÄ²ÎÊı²Î¿¼ÖĞÎ»Êı
 dtm4tp<-dtm4tp[row_sums(dtm4tp)>0,]
-summary(col_sums(dtm4tp));dim(dtm4tp) #é™ç»´ä¹‹åçš„çŸ©é˜µ
+summary(col_sums(dtm4tp));dim(dtm4tp) #½µÎ¬Ö®ºóµÄ¾ØÕó
 
 library("topicmodels")
-k<-10 #num of topics, å¦‚ä½•ç¡®å®šï¼Œä¸çŸ¥é“
+k<-10 #num of topics, ÈçºÎÈ·¶¨£¬²»ÖªµÀ
 SEED<-2013
 
 r_tm<-list( VEM=LDA(dtm4tp,k=k,control=list(seed=SEED)) ,
@@ -138,11 +130,11 @@ r_tm<-list( VEM=LDA(dtm4tp,k=k,control=list(seed=SEED)) ,
             CTM=CTM(dtm4tp,k=k, control=list(seed=SEED, var=list(tol=10^-4),em=list(tol=10^-3)))
 )
 sapply(r_tm[1:3], slot, "alpha")
-#aæ•°å€¼è¶Šå°ï¼Œæ›´å¤šæ–‡æ¡£è¢«åˆ†åœ¨ä¸€ä¸ªä¸»é¢˜ä¸‹çš„æ¦‚ç‡è¶Šé«˜-kçš„é€‰æ‹©è¶Šæ²¡ç”¨???
+#aÊıÖµÔ½Ğ¡£¬¸ü¶àÎÄµµ±»·ÖÔÚÒ»¸öÖ÷ÌâÏÂµÄ¸ÅÂÊÔ½¸ß-kµÄÑ¡ÔñÔ½Ã»ÓÃ???
 
 #the most likely topic for each doc is obtained by
 Topic<-topics(r_tm[["VEM"]],2)
-#æœ€åçš„å¸¸æ•°è¡¨ç¤ºæ¯ä¸ªdocæœ‰å‡ ä¸ªtopicï¼Œ1å°±æ˜¯å”¯ä¸€æ¦‚ç‡æœ€å¤§çš„é‚£ä¸ªtopicï¼Œç±»æ¨
+#×îºóµÄ³£Êı±íÊ¾Ã¿¸ödocÓĞ¼¸¸ötopic£¬1¾ÍÊÇÎ¨Ò»¸ÅÂÊ×î´óµÄÄÇ¸ötopic£¬ÀàÍÆ
 terms<-terms(r_tm[["VEM"]],10)
 write.csv(t(Topic),file="output/tpic.csv")
 write.csv(terms,file="output/terms.csv")
