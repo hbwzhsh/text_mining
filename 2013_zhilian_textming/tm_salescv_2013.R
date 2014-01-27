@@ -1,9 +1,8 @@
 #概述：999份文本简历的挖掘，
 #1按照htm结构抓简历相应部分内容，例：简历自我评价，XML
-#2语料库的清洗整理，生成dtm矩阵，全量和加权
+#2语料库的清洗整理，生成dtm矩阵，用统计方法筛选词
 #3描述统计分析和词云图，词关系图
 #4主题模型探索
-#问题1 数据导入泛适应；2正则优化-分词套用词库；3topic模型评价
 
 
 ##data prepare
@@ -68,6 +67,7 @@ terms <- atf.pdf(dtm.data)
 terms <- terms[ terms > quantile(terms, prob=.25) ]
 dtm.data <- dtm.data[, colnames(dtm.data) %in% names(terms)]
 
+
 #wordcloud图
 library(wordcloud)
 #单图
@@ -79,64 +79,37 @@ col<-rep( c(rgb(0,0.32,0.61), rgb(1,0.6,0),"black", rgb(0.6,0.8,0)),20)
 wc<-wordcloud(d$word,d$freq,colors=col, min.freq=5,max.words=80  )
 
 #分组图
-dm.class <- cbind(dtm.data, as.factor(gender))
-cluster_matrix <- aggregate(dtm.data ,by=list( gender) ,FUN=sum)
-matrix <- t(cluster_matrix[,-1]) #delete the class variable and transfer
-names(matrix) <- colnames(cluster_matrix)
-colnames(matrix) <- levels( as.factor(gender))
-comparison.cloud(  matrix,
-                   scale=c(2,1) , #字体最大及最小值
-                   max.words=200,
-                   random.order=FALSE,rot.per=.1,
-                   #colors=brewer.pal(ncol(cluster_matrix),"Dark2"),
-                   use.r.layout=FALSE,
-                   title.size=1)
-
-??comparison.cloud
-
-
+#性别分类
+wordcloud.class( dtm.data, gender )
+#年龄分类
+year <- cut(age, quantile(age , prob =c(0,.25,.5,.75,1)) )
+wordcloud.class( dtm.data, year )
 
 #词的关系图
-library(igraph) #参数要尝试
-dtmwc<-as.matrix(removeSparseTerms(dtm_w1,0.98))
-cordtm <- cor(dtmwc)
+library(igraph);library(tm) #参数要尝试
+dtmwc<-as.matrix(removeSparseTerms(dtm,0.8))
+cordtm <- cor(dtmwc) #词相关矩阵
 g=graph.adjacency((cordtm>(0.05)),mode="undirected",diag=F)
 plot(g,layout=layout.fruchterman.reingold, edge.color=grey(0.5),vertex.size=5)
 
-#高频词的相关词矩阵
-hft <- sapply(highfreqterms, FUN=function(x) list(findAssocs(dtm_w1, x, 0.1)[1:5] ) )
-hft #只能在本地看，没有合适的展示方式
 
 #做topicmodel
-dim(dtm_all) #999 1161
-#预处理,using tf-idf value to choose terms
-library("slam") #稀疏矩阵计算用的
-summary(col_sums(dtm_all))
-term_tfidf<-
-  tapply(dtm_all$v/row_sums(dtm_all)[dtm_all$i],dtm_all$j,mean)*
-  log2(nDocs(dtm_all)/col_sums(dtm_all>0))
-summary(term_tfidf)#全部term的dfidf值的分布，用来做筛选
-dtm4tp<-dtm_all[,term_tfidf>=1.4] #筛选term的参数参考中位数
-dtm4tp<-dtm4tp[row_sums(dtm4tp)>0,]
-summary(col_sums(dtm4tp));dim(dtm4tp) #降维之后的矩阵
-
+dim(dtm.data) #999 1161
+dtm.tp <- dtm.data[ rowSums(dtm.data) >0 ,]
 library("topicmodels")
 k<-10 #num of topics, 如何确定，不知道
 SEED<-2013
 
-r_tm<-list( VEM=LDA(dtm4tp,k=k,control=list(seed=SEED)) ,
-            VEM_fixed=LDA(dtm4tp,k=k, control=list(estimate.alpha=FALSE,seed=SEED)),
-            Gibbs=LDA(dtm4tp,k=k,method="Gibbs", control=list(seed=SEED,burnin=1000, thin=100,iter=1000)),
-            CTM=CTM(dtm4tp,k=k, control=list(seed=SEED, var=list(tol=10^-4),em=list(tol=10^-3)))
+r_tm<-list( VEM=LDA(dtm.tp,k=k,control=list(seed=SEED)) ,
+            VEM_fixed=LDA(dtm.tp,k=k, control=list(estimate.alpha=FALSE,seed=SEED)),
+            Gibbs=LDA(dtm.tp,k=k,method="Gibbs", control=list(seed=SEED,burnin=1000, thin=100,iter=1000)),
+            CTM=CTM(dtm.tp,k=k, control=list(seed=SEED, var=list(tol=10^-4),em=list(tol=10^-3)))
 )
 sapply(r_tm[1:3], slot, "alpha")
 #a数值越小，更多文档被分在一个主题下的概率越高-k的选择越没用???
-
 #the most likely topic for each doc is obtained by
 Topic<-topics(r_tm[["VEM"]],2)
 #最后的常数表示每个doc有几个topic，1就是唯一概率最大的那个topic，类推
-terms<-terms(r_tm[["VEM"]],10)
-write.csv(t(Topic),file="output/tpic.csv")
-write.csv(terms,file="output/terms.csv")
+term.topic<-terms(r_tm[["VEM"]],10)
 
 
